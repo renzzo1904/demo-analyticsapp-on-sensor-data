@@ -16,7 +16,7 @@ import folium
 from folium.plugins import Realtime
 from folium.utilities import JsCode
 
-
+a 
 
 st.set_page_config(
     page_title="Dashboard",
