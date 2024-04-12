@@ -15,16 +15,18 @@ class iot_sensor:
         self.sensor_data_store = []                               # Initialize an empty list to store sensor data
         self.generate_sensor_data()                               # generate initial data points
 
-    def generate_sensor_data(self) -> dict:
+    def generate_sensor_data(self,p_change=0.5) -> dict:
         '''
         This function generates a simulated data point representing sensor readings. It takes into account the time difference from the last recorded data point to smooth out transitions between consecutive data points. The function uses the previous data, if available, or default values to calculate the new sensor data. The key variables include:
 
-        datetime: The timestamp of the data point.
-        temperature: Simulated temperature reading with a slight variation.
-        humidity: Simulated humidity reading with a slight variation.
-        pressure: Simulated pressure reading with a slight variation.
-        location: Simulated location based on the speed and time difference from the previous data point.
-        speed: Simulated speed with a slight variation.
+        SENSOR_VARIABLES
+        `datetime`: The timestamp of the data point.
+        `temperature`: Simulated temperature reading with a slight variation.
+        `humidity`: Simulated humidity reading with a slight variation.
+        `pressure`: Simulated pressure reading with a slight variation.
+        `location`: Simulated location based on the speed and time difference from the previous data point.
+        `speed`: Simulated speed with a slight variation.
+        
         
         '''
         current_time = datetime.now()
@@ -46,7 +48,7 @@ class iot_sensor:
 
         # Create a more stable version 
 
-        if random.random() <= 0.05:
+        if random.random() <= p_change:
             temperature = previous_data["temperature"] + random.uniform(-0.5, 0.5)
             humidity = previous_data["humidity"] + random.uniform(-1.0, 1.0)
             pressure = previous_data["pressure"] + random.uniform(-0.5, 0.5)

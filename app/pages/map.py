@@ -23,6 +23,7 @@ async def update_query_params():
             df = fetch_df()
             await asyncio.sleep(2)  # Adjust the interval as needed
             return df
+        
 async def main():
 
     st.write("Map Page")

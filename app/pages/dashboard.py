@@ -1,6 +1,8 @@
 import sys
 sys.path.append('../scripts/')
 
+import datetime
+import pdb
 import threading
 import streamlit as st
 import pandas as pd
@@ -16,8 +18,6 @@ import folium
 from folium.plugins import Realtime
 from folium.utilities import JsCode
 
-a 
-
 st.set_page_config(
     page_title="Dashboard",
     page_icon="📊",
@@ -28,28 +28,27 @@ st.set_page_config(
 placeholder = st.empty()
 # --------------------------------------------------------------------------------------------------------------------------
 
-@st.cache_resource
+#@st.cache_resource
 def initiate_sensor(seed=1, data= None):
     """ Function for caching the sensor objects 
     `data`: Data to be passed to the sensor as initial."""
 
     if data:
-        sensor = iot_sensor(seed=seed).set_stored_data(data) 
+        sensor = iot_sensor(seed=seed)
+        sensor.set_stored_data(data)
     else: sensor = iot_sensor(seed=seed)
     return sensor 
 
-def return_df_from_sensor(generate_new=True,seed=1, data= None):
+def return_df_from_sensor(generate_new=True,seed=1, data= None,p=1):
     """Function to modularize better the extraction and instances of sensors being simulated.
     `generate_new (Bool)`: Calls the generation method of the sensor class to append a new line of data.
     """
 
-    if data is None:
-        sensor = initiate_sensor(seed=seed) # Load the sensor 
-    else: 
-        sensor = initiate_sensor(seed=seed,data=data) # Load the sensor 
-
+    if data: sensor = initiate_sensor(seed=seed,data=data) # Load the sensor 
+    else: sensor = initiate_sensor(seed=seed,data=None)
+    
     if generate_new: 
-        sensor.generate_sensor_data()
+        sensor.generate_sensor_data(p_change=p)
         return pd.DataFrame(sensor.sensor_data_store)
     else: return pd.DataFrame(sensor.sensor_data_store)
 
@@ -261,7 +260,7 @@ class app_structure():
             st.session_state.last_loc = pd.DataFrame({'latitude': [23.120153640967356],
                                                     'longitude': [-82.32292555767346]})
             
-        self.map = folium.Map(location=[*df_.location.iloc[-1].values()],zoom_start=17)
+        self.map = folium.Map(location=[*df_.location.iloc[-1].values()],zoom_start=12)
         #self.fg = folium.FeatureGroup(name="Markers")
 
         if self.selected_tab == "Dash":
@@ -307,9 +306,10 @@ class app_structure():
         while st.session_state.running:
 
             if "df" not in st.session_state:
-                df = return_df_from_sensor(generate_new=False)
+                df = return_df_from_sensor(generate_new=False,data=None)
             if "df" in st.session_state:
                 data = st.session_state.df.to_dict(orient='records')
+    
                 df = return_df_from_sensor(generate_new=True,data=data)
 
             st.session_state.df = df 
@@ -328,10 +328,6 @@ class app_structure():
             self.update_folium_map()
 
             with self.placeholder.container():
-
-                if self.selected_tab == "Map":
-
-                    with self.map_space.container(): folium_static(self.map,width=800,height=1000)
                      
                 if self.selected_tab == "Dash":
 
@@ -348,11 +344,14 @@ class app_structure():
 
                         with st.expander(label="Graph"):
                             
-                            display_line_chart(self.line_chart,df,selected_var=[var for var,on in st.session_state.variables.items() if on is True]) 
+                            display_line_chart(self.line_chart,df,selected_var=[var for var,on in st.session_state.variables.items() if on is True])
+
+                if self.selected_tab == "Map":
+                    with self.map_space.container(): folium_static(self.map,width=800,height=1000)
 
                     self.kpi = {k: v[::-1] for k, v in self.kpi.items()}
 
-            time.sleep(1)
+            time.sleep(2)
                             
     def update_folium_map(self):
         
