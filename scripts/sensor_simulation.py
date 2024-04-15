@@ -1,6 +1,7 @@
 # generate_sensor_data
 
 import random
+import numpy as np
 import time 
 import math
 from datetime import datetime, timedelta
@@ -49,26 +50,24 @@ class iot_sensor:
         # Create a more stable version 
 
         if random.random() <= p_change:
-            temperature = previous_data["temperature"] + random.uniform(-0.5, 0.5)
-            humidity = previous_data["humidity"] + random.uniform(-1.0, 1.0)
-            pressure = previous_data["pressure"] + random.uniform(-0.5, 0.5)
+            temperature = previous_data["temperature"] + random.uniform(0, 0.1)*np.random.choice([-1,1])
+            humidity = previous_data["humidity"] + random.uniform(0, 1.0)*np.random.choice([-1,1])
+            pressure = previous_data["pressure"] + random.uniform(0, 0.5)*np.random.choice([-1,1])
         else:
             temperature = previous_data["temperature"]
             humidity = previous_data["humidity"]
             pressure = previous_data["pressure"]
 
-        if random.random() <= 0.35:
-            speed = previous_data["speed"] + random.uniform(-4.0, 4.0)
+        if random.random() <= p_change:
+            speed = previous_data["speed"] + np.random.poisson(.75)*.1*np.random.uniform(0,20)
         else: speed = previous_data["speed"]
-
-        speed = max(0,speed) # make sure is above 0
 
         if speed != 0:
 
             lat_speed , lon_speed = generate_vector_components(speed)
             # Update location based on speed
-            location = {"latitude": previous_data["location"]["latitude"]+lat_speed * 1e-5 * time_diff,
-                "longitude": previous_data["location"]["longitude"] + lon_speed * 1e-5 * time_diff}
+            location = {"latitude": previous_data["location"]["latitude"]+ random.choice([-1,1])*lat_speed * 1e-5 * time_diff,
+                "longitude": previous_data["location"]["longitude"] + random.choice([-1,1])*lon_speed * 1e-5 * time_diff}
             
         else: location = {"latitude": previous_data["location"]["latitude"],
                 "longitude": previous_data["location"]["longitude"]}
