@@ -3,20 +3,21 @@ sys.path.append('../scripts/')
 
 import datetime
 import pdb
-import threading
 import streamlit as st
 import pandas as pd
 import time
+import plotly.figure_factory as ff
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 from sensor_simulation import iot_sensor
-from helpers import get_percentage_change
-from streamlit_folium import st_folium
+from helpers import get_percentage_change,generate_color_dict
 from streamlit_folium import folium_static
 import folium 
-from folium.plugins import Realtime
-from folium.utilities import JsCode
+
+# from folium.plugins import Realtime
+# from folium.utilities import JsCode
+# import threading
 
 st.set_page_config(
     page_title="Dashboard",
@@ -84,154 +85,65 @@ def display_metrics(container,kpi):
     `container`: Streamlit container where this function is used. Assumes a st.container() or st.empty()
     """
     with container:
-        with st.expander("📈 Metrics",expanded=True):
+        
+        #kpi1,kpi2,kpi3,kpi4,kpi5 = st.columns(5) # Create the space for displaying kpis
 
-            #kpi1,kpi2,kpi3,kpi4,kpi5 = st.columns(5) # Create the space for displaying kpis
+        st.metric(label="Mean Humidity 💧 ", 
+                    value=round(kpi['Mean Humidity'][1]), delta=get_percentage_change(kpi["Mean Humidity"]) )
+        st.metric(label="Min Temperature ❄ ", 
+                    value=round(kpi['Min Temperature'][1]), delta=get_percentage_change(kpi["Min Temperature"] ))
+        st.metric(label="Max Temperature 🔥 ",
+                    value=round(kpi['Max Temperature'][1]), delta=get_percentage_change(kpi["Max Temperature"] ))
+        st.metric(label="Mean Pressure 💢 ", 
+                    value=round(kpi['Mean Pressure'][1]), delta=get_percentage_change(kpi["Mean Pressure"] ))
+        st.metric(label="Speed 👟 ", 
+                    value=round(kpi['Current Speed'][1]), delta=get_percentage_change(kpi["Current Speed"] ),delta_color="off")
 
-            st.metric(label="Mean Humidity 💧 ", 
-                        value=round(kpi['Mean Humidity'][1]), delta=get_percentage_change(kpi["Mean Humidity"]) )
-            st.metric(label="Min Temperature ❄ ", 
-                        value=round(kpi['Min Temperature'][1]), delta=get_percentage_change(kpi["Min Temperature"] ))
-            st.metric(label="Max Temperature 🔥 ",
-                        value=round(kpi['Max Temperature'][1]), delta=get_percentage_change(kpi["Max Temperature"] ))
-            st.metric(label="Mean Pressure 💢 ", 
-                        value=round(kpi['Mean Pressure'][1]), delta=get_percentage_change(kpi["Mean Pressure"] ))
-            st.metric(label="Speed 👟 ", 
-                        value=round(kpi['Current Speed'][1]), delta=get_percentage_change(kpi["Current Speed"] ),delta_color="off")
-
-def display_scale_graph(container,data,size_1=150,size_2=40, lowest = 0, highest= 40):
-
-
-    """ Function to display last value on a Color Scale on. Can be used on temperature, speed or others.
-
-    container: Streamlit container where this function is used. Assumes a st.container() or st.empty()
-    data: assumes a data point is handed
-    size_1: Controls the size of the first scatter
-    size_2: Controls the size of the pointer.
-    lowest: Controls the lowest value.
-    highest: Controls the highest value. 
-
-    """
-
-    x = pd.Series([0.01*i for i in range(100)])
-    x = x * (highest - lowest) + lowest
-
-    y = ["0"]*100
-
-    fig = go.Figure()
-
-    fig.add_trace(go.Bar(y=y, x=x, marker=dict(color=x, colorscale="turbo", showscale=False),
-                            hoverinfo=None))
-
-    # Add scatter point at the middle
-    fig.add_trace(go.Scatter(x=[data-5], y=[0], marker=dict(color="white", size=size_2,symbol='triangle-up'),
-                             line=dict(width=10, color='black'), mode='markers'))
-
-    fig.update_traces(marker_line_width=0, text=None)  # Remove borders and text
-    fig.update_layout(coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)',showlegend=False)  # Hide the color scale and set background color
-
-    # Add centered title in white bold
-    #fig.update_layout(title=dict(text="Temperature", font=dict(color="black", size=16, family="Arial"),x=0.5, y=0.95, xanchor='center', yanchor='top'))
-
-    fig.update_layout(    xaxis=dict(
-        showticklabels=False,  # Hide tick labels
-        showgrid=False  # Hide gridlines
-    ),
-    yaxis=dict(
-        showticklabels=False,  # Hide tick labels
-        showgrid=False  # Hide gridlines
-    ),
-    showlegend=False  # Hide legend
-)
-    container.plotly_chart(fig,use_container_width=True)
-
-def display_line_chart(container, df, selected_var, x_col = "datetime" , size=30):
+def display_hist_dist_chart(container, df,selected_var,**kwargs):
     """Function to make the line chart.
     Assumes a df is handed. Checks for numeric columns to be plotted. 
-    x_col: Searches for a variable to be plotted against.
+    `x_col`: Searches for a variable to be plotted against.
+    """
+    # Create distplot with custom bin_size
+    data = [df.loc[:,i].values.tolist() for i in df.columns if i in selected_var]
+    fig = ff.create_distplot(data, selected_var, bin_size=kwargs.get("bin_size",0.5),colors=kwargs.get("colors"))
+
+    container.plotly_chart(fig)
+
+def display_line_chart(container, df, selected_var, x_col = "datetime" , **kwargs):
+    """Function to make the line chart.
+    Assumes a df is handed. Checks for numeric columns to be plotted. 
+    `x_col`: Searches for a variable to be plotted against.
     """
     # Create an empty list to store traces
     traces = []
 
     # Loop through selected variables and create traces
     for variable in selected_var:
-        trace = go.Scatter(x=df[x_col], y=df[variable], mode='lines', name=variable)
+        trace = go.Scatter(x=df[x_col], y=df[variable], mode='lines', name=variable,
+                           line=dict(color=kwargs.get("colors")[variable]))
         traces.append(trace)
 
     # Create layout
     layout = go.Layout(
         title=None,
-        xaxis=dict(title='X Axis', color='white'),
-        yaxis=dict(title='Y Axis', color='white'),
+        xaxis=dict(title='Time', color='white'),
+        yaxis=dict(title=f'{selected_var}', color='white'),
         plot_bgcolor='rgba(0,0,0,0)'
 )
 
     # Create figure
     fig = go.Figure(data=traces, layout=layout)
 
-    fig.update_layout(coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)',showlegend=False)
+    fig.update_layout(coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)',showlegend=True)
 
     # Display the chart
     container.plotly_chart(fig)
 
-def create_map(data,color=[255, 0, 0]):
-    """Function to wrap around the creation of a custom st.pydeck_chart.
-    data: Assumes a df with longitude and latitude. Expected to be only one data point.
-    color: RGB code to marker on map.
-    """
+def display_ml_results(html_file):
     
-    # Simulate sensor location
-    sensor_location = data  # Havana, Cuba
-
-    # Create a PyDeck scatterplot layer for the sensor location
-    layer = pdk.Layer(
-        "ScatterplotLayer",
-        data,
-        get_position=["longitude", "latitude"],
-        get_color=[255, 0, 0],
-        get_radius=1000,
-    )
-
-    # Create a PyDeck deck with the specified map style and layers
-    deck = pdk.Deck(
-        map_style="mapbox://styles/mapbox/light-v9",
-        initial_view_state={
-            "latitude": data.get("latitude"),
-            "longitude": data.get("longitude"),
-            "zoom": 10,
-            "pitch": 50,
-        },
-        layers=[layer],
-    )
-
-    # Display the PyDeck chart using st.pydeck_chart
-    return deck
-
-def create_source(df):
-
-    source = f"""
-        function(responseHandler, errorHandler) {{
-            var latitude = {df['latitude'].values[0]};
-            var longitude = {df['longitude'].values[0]};
-
-            var feature = {{
-                'type': 'FeatureCollection',
-                'features': [{{
-                    'type': 'Feature',
-                    'geometry': {{
-                        'type': 'Point',
-                        'coordinates': [longitude, latitude]
-                    }},
-                    'properties': {{
-                        'id': 'data'
-                    }}
-                }}]
-            }};
-
-            responseHandler(feature);
-        }}
-    """
-    return folium.JsCode(source)
+    with open(html_file,"r") as file: html=file.read()
+    st.html(html)
 
 # --------------------------------------------------------------------------------------------------------------------------
 
@@ -248,69 +160,70 @@ class app_structure():
             'Max Temperature': [0,0],
             'Mean Pressure': [0,0],
             'Current Speed': [0,0]}                             # Helpful to track changes 
-
         self.placeholder = st.empty()
 
-        st.sidebar.title("Navigation")
-        tabs = ["Map","Dash"]
-        self.selected_tab = st.sidebar.radio("Go to", tabs)
+        if "colors_dict" not in st.session_state:     
+            st.session_state.colors_dict = generate_color_dict(df_.columns)
 
-                    # Initialize Streamlit session state
+        # st.sidebar.title("Navigation")
+        # tabs = ["Dash","Map"]
+        # self.selected_tab = st.sidebar.radio("Go to", tabs)
+
+        # Initialize Streamlit session state
         if 'last_loc' not in st.session_state:
             st.session_state.last_loc = pd.DataFrame({'latitude': [23.120153640967356],
                                                     'longitude': [-82.32292555767346]})
             
-        self.map = folium.Map(location=[*df_.location.iloc[-1].values()],zoom_start=12)
-        #self.fg = folium.FeatureGroup(name="Markers")
+        self.map = folium.Map(location=[*df_.location.iloc[-1].values()],zoom_start=17)
 
-        if self.selected_tab == "Dash":
+        with self.placeholder.container():
 
-            with self.placeholder.container():
+            self.col1, self.col2 = st.columns([1,4])
 
-                self.col1, self.col2 = st.columns([1,3])
-
-                with self.col1:
-
+            with self.col1:
+                with st.expander("📈 Metrics",expanded=True):
                     self.metrics = st.empty()
+                
+                with st.expander("💻 Forecast ",expanded=True):
+                    display_ml_results(html_file="ml_widget.html")
 
-                with self.col2: 
+            with self.col2: 
 
-                    self.numeric_columns = [col for col in df_.columns if 
-                    not any(isinstance(val, (list, dict, tuple)) for val in df_[col]) and
-                        df_[col].dtypes not in ["O","<M8[ns]"]]
-                    
-                    if "variables" not in st.session_state:
-                        st.session_state.variables = {}
-                    if "last_loc" not in st.session_state:
-                        st.session_state["last_loc"] = df_.location.iloc[-1]
+                self.numeric_columns = [col for col in df_.columns if 
+                not any(isinstance(val, (list, dict, tuple)) for val in df_[col]) and
+                    df_[col].dtypes not in ["O","<M8[ns]"]]
+                
+                if "variables" not in st.session_state:
+                    st.session_state.variables = {}
+                if "last_loc" not in st.session_state:
+                    st.session_state["last_loc"] = df_.location.iloc[-1]
 
-                    toogle_widgets_spaces = st.columns(len(self.numeric_columns))
+                toogle_widgets_spaces = st.columns(len(self.numeric_columns))
 
-                    for i,col in enumerate(self.numeric_columns):
-                        with toogle_widgets_spaces[i]:
-                            st.session_state.variables[col]= st.toggle(col,key=col)
+                for i,col in enumerate(self.numeric_columns):
+                    with toogle_widgets_spaces[i]:
+                        st.session_state.variables[col]= st.toggle(col,key=col)
 
+                with st.expander(label="Graph"):
                     self.line_chart = st.empty()
+                    self.hist_chart = st.empty()
 
-                with st.expander("Revieved Data"):
-                    self.df_display = st.empty()
+            with st.expander("Revieved Data"):
+                self.df_display = st.empty()
 
-        if self.selected_tab == "Map":
-
-            self.map_space  = st.empty()
-
-            #st.rerun()
+            with st.expander("Map 🗺",expanded=False):
+                self.map_space  = st.empty()
             
     def realtime_dashboard(self):
-
+        
         while st.session_state.running:
 
             if "df" not in st.session_state:
-                df = return_df_from_sensor(generate_new=False,data=None)
+                df = return_df_from_sensor(generate_new=False,data=None,p=0.5)
             if "df" in st.session_state:
                 data = st.session_state.df.to_dict(orient='records')
     
-                df = return_df_from_sensor(generate_new=True,data=data)
+                df = return_df_from_sensor(generate_new=True,data=data,p=0.5)
 
             st.session_state.df = df 
             
@@ -328,28 +241,28 @@ class app_structure():
             self.update_folium_map()
 
             with self.placeholder.container():
-                     
-                if self.selected_tab == "Dash":
 
-                    with self.col1:
+                with self.col1:
+                    # Update metrics 
+                    display_metrics(self.metrics.container(),self.kpi)
 
-                        # Update metrics 
-                        display_metrics(self.metrics.container(),self.kpi)
+                with self.df_display:
 
-                    with self.df_display:
+                    st.dataframe(df)
 
-                        st.dataframe(df)
+                with self.col2:
 
-                    with self.col2:
+                    var = [var for var,on in st.session_state.variables.items() if on is True]
+                    display_line_chart(self.line_chart,df,selected_var=var,colors=st.session_state.colors_dict)
 
-                        with st.expander(label="Graph"):
-                            
-                            display_line_chart(self.line_chart,df,selected_var=[var for var,on in st.session_state.variables.items() if on is True])
+                    if var:
+                        display_hist_dist_chart(self.hist_chart,df,selected_var=var,
+                                                bin_size=0.4,colors=[val for key,val in st.session_state.colors_dict.items() if key in var])
 
-                if self.selected_tab == "Map":
-                    with self.map_space.container(): folium_static(self.map,width=800,height=1000)
 
-                    self.kpi = {k: v[::-1] for k, v in self.kpi.items()}
+                with self.map_space.container(): folium_static(self.map,width=800,height=1000)
+
+                self.kpi = {k: v[::-1] for k, v in self.kpi.items()}
 
             time.sleep(2)
                             
@@ -360,19 +273,41 @@ class app_structure():
         lon = st.query_params.get("longitude")
         time_sensor = st.query_params.get("time")
 
+        get_speed = st.session_state.df.speed.iloc[-1]
+
+        list_of_pos = [list(pair.values()) for pair in st.session_state.df.location]
+        
+        trajectory = folium.PolyLine(list_of_pos,
+                                     weight=2,
+                                     opacity=0.75)
+
         if not lat and not lon: 
             
             lat,lon = (23.1588114225629,-82.35733509718557)
 
-        #js = create_source(pd.DataFrame([{"latitude":lat,"longitude":lon}]))
+        # Add markers for the start and end points
+        start_marker = folium.Marker(
+            location=list_of_pos[0],
+            popup=f'Start at {st.session_state.df.datetime.iloc[0]}',
+            icon=folium.Icon(color='green', icon='play')
+        )
 
-        #rt = Realtime(create_source,interval=1000)
-        rt = folium.Marker(location=[lat,lon],tooltip=f"{time_sensor}",icon=folium.Icon(color="green"))
-        rt.add_to(self.map)
+        icon = folium.DivIcon(
+        icon_size=(30, 30),
+        icon_anchor=(15, 15),
+        html=f'<div style="font-size: 12pt; color: white; background-color: red; border-radius: 50%; width: 30px; height: 30px; text-align: center; line-height: 30px;">{get_speed}</div>')
+   
+        position = folium.Marker(location=[lat,lon],tooltip=f"{time_sensor}",icon=icon)
 
-        #self.fg.add_child(folium.Marker(location=[lat,lon],tooltip=f"{time_sensor}",icon=folium.Icon(color="green")))
+        self.map.location = [lat, lon]
 
-        #out = st_folium(self.map,feature_group_to_add=self.fg,width=1200,height=500)      
+        self.fg = folium.FeatureGroup(name="Markers")
+        
+        self.fg.add_child(start_marker) # add trajectory
+        self.fg.add_child(trajectory)   # add start point
+        self.fg.add_child(position)     # add endpoint
+
+        self.map.add_child(self.fg)
 
 #----------------------------------------------------------------------------------------
 
