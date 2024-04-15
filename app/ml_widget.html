@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Forecast Widget</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: black; /* Making the text color black */
+            font-size: smaller; /* Making the default font size smaller */
+        }
+
+        .weather-widget {
+            background-color: #ffffff00;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(182, 161, 161, 0);
+            text-align: center;
+        }
+
+        .weather-icon {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto;
+        }
+
+        .weather-info {
+            margin-top: 20px;
+        }
+
+        h2 {
+            color: rgb(255, 255, 255); /* Making the title font color black */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Using a different font for the title */
+            font-size: larger; /* Making the title font size larger */
+        }
+
+        p {
+
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: rgb(255, 255, 255); /* Making the title font color black */
+        }
+    </style>
+</head>
+<body>
+    <div class="weather-widget">
+        <img src="brain.png" alt="weather-icon" class="weather-icon">
+        <div class="weather-info">
+            <h2>Weather Forecast from Sensor </h2>
+            <p><strong>Temperature:</strong> 28°C</p>
+            <p><strong>Humidity:</strong> 60%</p>
+            <p><strong>Pressure:</strong> 1013 hPa</p>
+        </div>
+    </div>
+</body>
+</html>
