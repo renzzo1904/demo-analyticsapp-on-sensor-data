@@ -6,6 +6,7 @@ import pdb
 import streamlit as st
 import pandas as pd
 import time
+import asyncio  
 import plotly.figure_factory as ff
 import plotly.express as px
 import plotly.graph_objects as go
@@ -209,73 +210,82 @@ class app_structure():
                     self.line_chart = st.empty()
                     self.hist_chart = st.empty()
 
-            with st.expander("Map 🗺",expanded=False):
-                self.map_space  = st.columns([4,1])
+            st.sidebar.checkbox("Autorefresh", 
+                                help="Hacer que mapa se actualice automáticamente",
+                                value=False,
+                                key="autorefresh")
+
+            st.sidebar.slider(label="Seleccionar tasa de refresco de mapa",
+                              min_value=1,max_value=10,
+                              disabled=not st.session_state.autorefresh,key="run_every")
+
+            self.map_fragment()
 
             with st.expander("Revieved Data"):
                 self.df_display = st.empty()
-
-                with self.map_space[1]: 
-                    
-                    auto_refresh = st.checkbox('Auto-refresh 🔁',value=True,
-                                               key="auto_refresh",
-                                               help="Hacer que el mapa se actualice por si solo.")
-                
-                    if not auto_refresh:
-                        st.button("Refresh",key="refresh")
             
-    def realtime_dashboard(self):
+    async def realtime_dashboard(self):
+
+        #await self.update_folium_map()
+
+        if "df" not in st.session_state:
+            df = return_df_from_sensor(generate_new=False,data=None,p=0.5)
+        if "df" in st.session_state:
+            data = st.session_state.df.to_dict(orient='records')
+
+            df = return_df_from_sensor(generate_new=True,data=data,p=0.5)
+
+        st.session_state.df = df 
         
-        while st.session_state.running:
+        st.query_params["latitude"] = df.location.iloc[-1]["latitude"]
+        st.query_params["longitude"] = df.location.iloc[-1]["longitude"]
+        st.query_params["time"] = df.datetime.iloc[-1]
 
-            if "df" not in st.session_state:
-                df = return_df_from_sensor(generate_new=False,data=None,p=0.5)
-            if "df" in st.session_state:
-                data = st.session_state.df.to_dict(orient='records')
+        # Calculate KPIs
+        self.kpi['Mean Humidity'][1] = df['humidity'].mean()
+        self.kpi['Min Temperature'][1] = df['temperature'].min()
+        self.kpi['Max Temperature'][1] = df['temperature'].max()
+        self.kpi['Mean Pressure'][1] = df['pressure'].mean()
+        self.kpi['Current Speed'][1] = df['speed'].iloc[-1]
+
+        with self.placeholder.container():
+
+            with self.col1:
+                # Update metrics 
+                display_metrics(self.metrics.container(),self.kpi)
+
+            with self.df_display:
+
+                st.dataframe(df)
+
+            with self.col2:
+
+                var = [var for var,on in st.session_state.variables.items() if on is True]
+                display_line_chart(self.line_chart,df,selected_var=var,colors=st.session_state.colors_dict)
+
+                if var:
+                    display_hist_dist_chart(self.hist_chart,df,selected_var=var,
+                                            bin_size=0.4,colors=[val for key,val in st.session_state.colors_dict.items() if key in var])
+
+            #with self.map_space.container(): 
+
+            self.kpi = {k: v[::-1] for k, v in self.kpi.items()}
+
+        asyncio.sleep(3)
+
+    @st.experimental_fragment(run_every=st.session_state.get("run_every"))                   
+    def map_fragment(self):
+
+        with st.expander("Map 🗺",expanded=False):
+            #self.map_space  = st.columns([4,1])
+            st.button(
+            "Update", disabled=not st.session_state.autorefresh)
+
+            self.map_space = st.empty()
     
-                df = return_df_from_sensor(generate_new=True,data=data,p=0.5)
+    async def update_folium_map(self):
 
-            st.session_state.df = df 
-            
-            st.query_params["latitude"] = df.location.iloc[-1]["latitude"]
-            st.query_params["longitude"] = df.location.iloc[-1]["longitude"]
-            st.query_params["time"] = df.datetime.iloc[-1]
-
-            # Calculate KPIs
-            self.kpi['Mean Humidity'][1] = df['humidity'].mean()
-            self.kpi['Min Temperature'][1] = df['temperature'].min()
-            self.kpi['Max Temperature'][1] = df['temperature'].max()
-            self.kpi['Mean Pressure'][1] = df['pressure'].mean()
-            self.kpi['Current Speed'][1] = df['speed'].iloc[-1]
-
-            with self.placeholder.container():
-
-                with self.col1:
-                    # Update metrics 
-                    display_metrics(self.metrics.container(),self.kpi)
-
-                with self.df_display:
-
-                    st.dataframe(df)
-
-                with self.col2:
-
-                    var = [var for var,on in st.session_state.variables.items() if on is True]
-                    display_line_chart(self.line_chart,df,selected_var=var,colors=st.session_state.colors_dict)
-
-                    if var:
-                        display_hist_dist_chart(self.hist_chart,df,selected_var=var,
-                                                bin_size=0.4,colors=[val for key,val in st.session_state.colors_dict.items() if key in var])
-                    self.update_folium_map()
-
-                #with self.map_space.container(): 
-
-                self.kpi = {k: v[::-1] for k, v in self.kpi.items()}
-
-            time.sleep(2)
-
-    @st.experimental_fragment                        
-    def update_folium_map(self):
+        if st.session_state.running or st.session_state.get("df") is not None:
 
             # Get query params to trigger updates
             lat = st.query_params.get("latitude")
@@ -318,24 +328,36 @@ class app_structure():
             self.fg.add_child(position)     # add endpoint
             self.map.add_child(self.fg)
 
-            with self.map_space[0].container():
-                folium_static(self.map,width=800,height=1000)
+            with self.map_space:
+                if st.session_state.get("run_every"):
+                    folium_static(self.map,width=800,height=1000)
 
-            if st.session_state.auto_refresh: 
-                time.sleep(3)
-                st.rerun() 
-            elif st.session_state.refresh:
-                st.rerun()
+        else: pass
+
+        await asyncio.sleep(3)
 
 
+        # if st.session_state.auto_refresh: 
+        #     time.sleep(3)
+        #     st.rerun() 
+        # elif st.session_state.refresh:
+        #     st.rerun()
+
+        
+async def main():
+
+    app = app_structure()
+
+    while st.session_state.running:
+        await asyncio.gather(app.realtime_dashboard(),app.update_folium_map())
+
+    
 
 #----------------------------------------------------------------------------------------
 
 if __name__ =="__main__":
 
-    app= app_structure()
-    
-    app.realtime_dashboard()
+    asyncio.run(main())
     #app.update_folium_map()
 
 
