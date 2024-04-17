@@ -185,6 +185,7 @@ class app_structure():
                     self.metrics = st.empty()
                 
                 with st.expander("💻 Forecast ",expanded=True):
+                    st.image("brain.png")
                     display_ml_results(html_file="ml_widget.html")
 
             with self.col2: 
@@ -208,11 +209,20 @@ class app_structure():
                     self.line_chart = st.empty()
                     self.hist_chart = st.empty()
 
+            with st.expander("Map 🗺",expanded=False):
+                self.map_space  = st.columns([4,1])
+
             with st.expander("Revieved Data"):
                 self.df_display = st.empty()
 
-            with st.expander("Map 🗺",expanded=False):
-                self.map_space  = st.empty()
+                with self.map_space[1]: 
+                    
+                    auto_refresh = st.checkbox('Auto-refresh 🔁',value=True,
+                                               key="auto_refresh",
+                                               help="Hacer que el mapa se actualice por si solo.")
+                
+                    if not auto_refresh:
+                        st.button("Refresh",key="refresh")
             
     def realtime_dashboard(self):
         
@@ -238,8 +248,6 @@ class app_structure():
             self.kpi['Mean Pressure'][1] = df['pressure'].mean()
             self.kpi['Current Speed'][1] = df['speed'].iloc[-1]
 
-            self.update_folium_map()
-
             with self.placeholder.container():
 
                 with self.col1:
@@ -258,62 +266,77 @@ class app_structure():
                     if var:
                         display_hist_dist_chart(self.hist_chart,df,selected_var=var,
                                                 bin_size=0.4,colors=[val for key,val in st.session_state.colors_dict.items() if key in var])
+                    self.update_folium_map()
 
-
-                with self.map_space.container(): folium_static(self.map,width=800,height=1000)
+                #with self.map_space.container(): 
 
                 self.kpi = {k: v[::-1] for k, v in self.kpi.items()}
 
             time.sleep(2)
-                            
+
+    @st.experimental_fragment                        
     def update_folium_map(self):
-        
-        # Get query params to trigger updates
-        lat = st.query_params.get("latitude")
-        lon = st.query_params.get("longitude")
-        time_sensor = st.query_params.get("time")
 
-        get_speed = st.session_state.df.speed.iloc[-1]
+            # Get query params to trigger updates
+            lat = st.query_params.get("latitude")
+            lon = st.query_params.get("longitude")
+            time_sensor = st.query_params.get("time")
 
-        list_of_pos = [list(pair.values()) for pair in st.session_state.df.location]
-        
-        trajectory = folium.PolyLine(list_of_pos,
-                                     weight=2,
-                                     opacity=0.75)
+            get_speed = st.session_state.df.speed.iloc[-1]
 
-        if not lat and not lon: 
+            list_of_pos = [list(pair.values()) for pair in st.session_state.df.location]
             
-            lat,lon = (23.1588114225629,-82.35733509718557)
+            trajectory = folium.PolyLine(list_of_pos,
+                                        weight=2,
+                                        opacity=0.75)
 
-        # Add markers for the start and end points
-        start_marker = folium.Marker(
-            location=list_of_pos[0],
-            popup=f'Start at {st.session_state.df.datetime.iloc[0]}',
-            icon=folium.Icon(color='green', icon='play')
-        )
+            if not lat and not lon: 
+                
+                lat,lon = (23.1588114225629,-82.35733509718557)
 
-        icon = folium.DivIcon(
-        icon_size=(30, 30),
-        icon_anchor=(15, 15),
-        html=f'<div style="font-size: 12pt; color: white; background-color: red; border-radius: 50%; width: 30px; height: 30px; text-align: center; line-height: 30px;">{get_speed}</div>')
-   
-        position = folium.Marker(location=[lat,lon],tooltip=f"{time_sensor}",icon=icon)
+            # Add markers for the start and end points
+            start_marker = folium.Marker(
+                location=list_of_pos[0],
+                popup=f'Start at {st.session_state.df.datetime.iloc[0]}',
+                icon=folium.Icon(color='green', icon='play')
+            )
 
-        self.map.location = [lat, lon]
+            icon = folium.DivIcon(
+            icon_size=(15, 15),
+            icon_anchor=(15, 15),
+            html = f'<div style="font-size: 8; color: black; width: 40px; height: 40px; text-align: center; line-height: 40px; border-radius: 80%; background: radial-gradient(circle at center, transparent 60%, red 40%, red 100%);"><b>{get_speed}</b></div>'
+            )
 
-        self.fg = folium.FeatureGroup(name="Markers")
-        
-        self.fg.add_child(start_marker) # add trajectory
-        self.fg.add_child(trajectory)   # add start point
-        self.fg.add_child(position)     # add endpoint
+            position = folium.Marker(location=[lat,lon],tooltip=f"{time_sensor}",icon=icon)
 
-        self.map.add_child(self.fg)
+            self.map.location = [lat, lon]
+
+            self.fg = folium.FeatureGroup(name="Markers")
+            
+            self.fg.add_child(start_marker) # add trajectory
+            self.fg.add_child(trajectory)   # add start point
+            self.fg.add_child(position)     # add endpoint
+            self.map.add_child(self.fg)
+
+            with self.map_space[0].container():
+                folium_static(self.map,width=800,height=1000)
+
+            if st.session_state.auto_refresh: 
+                time.sleep(3)
+                st.rerun() 
+            elif st.session_state.refresh:
+                st.rerun()
+
+
 
 #----------------------------------------------------------------------------------------
 
 if __name__ =="__main__":
 
-    app_structure().realtime_dashboard()
+    app= app_structure()
+    
+    app.realtime_dashboard()
+    #app.update_folium_map()
 
 
      
