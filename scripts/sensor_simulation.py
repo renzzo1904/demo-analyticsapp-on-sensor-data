@@ -5,7 +5,7 @@ import numpy as np
 import time 
 import math
 from datetime import datetime, timedelta
-from helpers import generate_vector_components
+from helpers import generate_vector_components, polar_to_cartesian,km_per_hour_to_lat_lon_velocity
 
 class iot_sensor:
 
@@ -16,7 +16,7 @@ class iot_sensor:
         self.sensor_data_store = []                               # Initialize an empty list to store sensor data
         self.generate_sensor_data()                               # generate initial data points
 
-    def generate_sensor_data(self,p_change=0.5) -> dict:
+    def generate_sensor_data(self,**kwargs) -> dict:
         '''
         This function generates a simulated data point representing sensor readings. It takes into account the time difference from the last recorded data point to smooth out transitions between consecutive data points. The function uses the previous data, if available, or default values to calculate the new sensor data. The key variables include:
 
@@ -27,7 +27,6 @@ class iot_sensor:
         `pressure`: Simulated pressure reading with a slight variation.
         `location`: Simulated location based on the speed and time difference from the previous data point.
         `speed`: Simulated speed with a slight variation.
-        
         
         '''
         current_time = datetime.now()
@@ -49,7 +48,7 @@ class iot_sensor:
 
         # Create a more stable version 
 
-        if random.random() <= p_change:
+        if random.random() <= kwargs.get("p_change",0.3):
             temperature = previous_data["temperature"] + random.uniform(0, 0.1)*np.random.choice([-1,1])
             humidity = previous_data["humidity"] + random.uniform(0, 1.0)*np.random.choice([-1,1])
             pressure = previous_data["pressure"] + random.uniform(0, 0.5)*np.random.choice([-1,1])
@@ -58,16 +57,18 @@ class iot_sensor:
             humidity = previous_data["humidity"]
             pressure = previous_data["pressure"]
 
-        if random.random() <= p_change:
+        if random.random() <= kwargs.get("p_change",0.3):
             speed = previous_data["speed"] + np.random.poisson(.75)*.1*np.random.uniform(0,20)
         else: speed = previous_data["speed"]
 
         if speed != 0:
 
-            lat_speed , lon_speed = generate_vector_components(speed)
-            # Update location based on speed
-            location = {"latitude": previous_data["location"]["latitude"]+ random.choice([-1,1])*lat_speed * 1e-5 * time_diff,
-                "longitude": previous_data["location"]["longitude"] + random.choice([-1,1])*lon_speed * 1e-5 * time_diff}
+            dy, dx = generate_vector_components(speed) # Generate the components
+
+            lat_speed, lon_speed = km_per_hour_to_lat_lon_velocity(dx,dy,previous_data["location"]["latitude"]) # Return lat,lon velocities\second
+            
+            location = {"latitude": previous_data["location"]["latitude"]+ lat_speed *time_diff,
+                "longitude": previous_data["location"]["longitude"] + lon_speed * time_diff}
             
         else: location = {"latitude": previous_data["location"]["latitude"],
                 "longitude": previous_data["location"]["longitude"]}
