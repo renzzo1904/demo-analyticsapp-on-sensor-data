@@ -146,6 +146,10 @@ def display_ml_results(html_file):
     with open(html_file,"r") as file: html=file.read()
     st.html(html)
 
+def click_update_button():
+    """callback to button click"""
+    st.session_state.update_click = True
+
 # --------------------------------------------------------------------------------------------------------------------------
 
 class app_structure():
@@ -165,6 +169,9 @@ class app_structure():
 
         if "colors_dict" not in st.session_state:     
             st.session_state.colors_dict = generate_color_dict(df_.columns)
+        
+        if 'update_click' not in st.session_state:
+            st.session_state.update_click = False
 
         # st.sidebar.title("Navigation")
         # tabs = ["Dash","Map"]
@@ -206,7 +213,7 @@ class app_structure():
                     with toogle_widgets_spaces[i]:
                         st.session_state.variables[col]= st.toggle(col,key=col)
 
-                with st.expander(label="Graph"):
+                with st.expander(label="Graph",expanded=True):
                     self.line_chart = st.empty()
                     self.hist_chart = st.empty()
 
@@ -273,69 +280,91 @@ class app_structure():
 
         asyncio.sleep(3)
 
-    @st.experimental_fragment(run_every=st.session_state.get("run_every"))                   
+    #@st.experimental_fragment(run_every=st.session_state.get("run_every"))                   
     def map_fragment(self):
 
         with st.expander("Map 🗺",expanded=False):
             #self.map_space  = st.columns([4,1])
             st.button(
-            "Update", disabled=not st.session_state.autorefresh)
+            "Update", disabled=st.session_state.autorefresh,on_click=click_update_button)
 
             self.map_space = st.empty()
     
-    async def update_folium_map(self):
+    def update_map(self):
+        
+        # Get query params to trigger updates
+        lat = st.query_params.get("latitude")
+        lon = st.query_params.get("longitude")
+        time_sensor = st.query_params.get("time")
 
-        if st.session_state.running or st.session_state.get("df") is not None:
+        get_speed = st.session_state.df.speed.iloc[-1]
 
-            # Get query params to trigger updates
-            lat = st.query_params.get("latitude")
-            lon = st.query_params.get("longitude")
-            time_sensor = st.query_params.get("time")
+        list_of_pos = [list(pair.values()) for pair in st.session_state.df.location]
+        
+        trajectory = folium.PolyLine(list_of_pos,
+                                    weight=2,
+                                    opacity=0.75)
 
-            get_speed = st.session_state.df.speed.iloc[-1]
-
-            list_of_pos = [list(pair.values()) for pair in st.session_state.df.location]
+        if not lat and not lon: 
             
-            trajectory = folium.PolyLine(list_of_pos,
-                                        weight=2,
-                                        opacity=0.75)
+            lat,lon = (23.1588114225629,-82.35733509718557)
 
-            if not lat and not lon: 
-                
-                lat,lon = (23.1588114225629,-82.35733509718557)
+        # Add markers for the start and end points
+        start_marker = folium.Marker(
+            location=list_of_pos[0],
+            popup=f'Start at {st.session_state.df.datetime.iloc[0]}',
+            icon=folium.Icon(color='green', icon='play')
+        )
 
-            # Add markers for the start and end points
-            start_marker = folium.Marker(
-                location=list_of_pos[0],
-                popup=f'Start at {st.session_state.df.datetime.iloc[0]}',
-                icon=folium.Icon(color='green', icon='play')
-            )
+        #custom icon
+        icon = folium.DivIcon(
+        icon_size=(15, 15),
+        icon_anchor=(15, 15),
+        html = f'<div style="font-size: 8; color: black; width: 40px; height: 40px; text-align: center; line-height: 40px; border-radius: 80%; background: radial-gradient(circle at center, transparent 60%, red 40%, red 100%);"><b>{get_speed}</b></div>'
+        )
 
-            icon = folium.DivIcon(
-            icon_size=(15, 15),
-            icon_anchor=(15, 15),
-            html = f'<div style="font-size: 8; color: black; width: 40px; height: 40px; text-align: center; line-height: 40px; border-radius: 80%; background: radial-gradient(circle at center, transparent 60%, red 40%, red 100%);"><b>{get_speed}</b></div>'
-            )
+        position = folium.Marker(location=[lat,lon],tooltip=f"{time_sensor}",icon=icon)
 
-            position = folium.Marker(location=[lat,lon],tooltip=f"{time_sensor}",icon=icon)
+        self.map.location = [lat, lon]
 
-            self.map.location = [lat, lon]
+        self.fg = folium.FeatureGroup(name="Markers")
+        
+        self.fg.add_child(start_marker) # add trajectory
+        self.fg.add_child(trajectory)   # add start point
+        self.fg.add_child(position)     # add endpoint
+        self.map.add_child(self.fg)
 
-            self.fg = folium.FeatureGroup(name="Markers")
-            
-            self.fg.add_child(start_marker) # add trajectory
-            self.fg.add_child(trajectory)   # add start point
-            self.fg.add_child(position)     # add endpoint
-            self.map.add_child(self.fg)
+        with self.map_space:
+            folium_static(self.map,width=800,height=1000)
 
-            with self.map_space:
-                if st.session_state.get("run_every"):
-                    folium_static(self.map,width=800,height=1000)
+        return lat,lon,time_sensor,get_speed
 
-        else: pass
+    async def update_map_widget(self):
 
-        await asyncio.sleep(3)
+        if st.session_state.get("autorefresh") is not False:
 
+            if st.session_state.running or st.session_state.get("df") is not None:
+
+                lat,lon,_,_=self.update_map()    
+
+                time_await =  st.session_state.get("run_every")
+                await asyncio.sleep(time_await) 
+
+                self.map = folium.Map(location=[lat,lon],zoom_start=17) # refresh map canvas.
+        
+            else: pass
+
+        elif st.session_state.get("df") is not None and st.session_state.update_click: 
+            # simulate process 
+            lat,lon,_,_=self.update_map()
+
+            await asyncio.sleep(2)  
+            self.map = folium.Map(location=[lat,lon],zoom_start=17) # refresh map canvas.
+
+            st.session_state.update_click = False
+
+        else: await asyncio.sleep(2)
+             
 
         # if st.session_state.auto_refresh: 
         #     time.sleep(3)
@@ -349,7 +378,7 @@ async def main():
     app = app_structure()
 
     while st.session_state.running:
-        await asyncio.gather(app.realtime_dashboard(),app.update_folium_map())
+        await asyncio.gather(app.realtime_dashboard(),app.update_map_widget())
 
     
 
