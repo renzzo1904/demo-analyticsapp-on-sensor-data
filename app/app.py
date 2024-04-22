@@ -6,7 +6,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.write("# Welcome to ConexIA Dash Demo! 👋")
+st.write("# Bienvenido al Dash Demo! 👋")
 
 st.sidebar.success("Select a topic above.")
 
