@@ -359,6 +359,7 @@ class app_structure():
             lat,lon,_,_=self.update_map()
 
             await asyncio.sleep(2)  
+            
             self.map = folium.Map(location=[lat,lon],zoom_start=17) # refresh map canvas.
 
             st.session_state.update_click = False
