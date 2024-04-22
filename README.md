@@ -5,7 +5,7 @@ Esta aplicación es un dashboard de tiempo real que simula la lectura de datos d
 ### Requisitos previos
 - [Python](https://www.python.org/downloads/) instalado en tu sistema.
 - [Docker](https://www.docker.com/get-started) instalado si prefieres ejecutar la aplicación en un contenedor Docker.
-
+ 
 ### Ejecución local
 
 #### Clonar el repositorio
@@ -18,6 +18,6 @@ Esta aplicación es un dashboard de tiempo real que simula la lectura de datos d
 3. Navega hasta el directorio
     ```bash
     cd nombre_del_repositorio
-    
+
 4. Instala las dependencias    
 
