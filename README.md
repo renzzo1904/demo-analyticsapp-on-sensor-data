@@ -17,6 +17,7 @@ Esta aplicación es un dashboard de tiempo real que simula la lectura de datos d
 
 3. Navega hasta el directorio
     ```bash
-        cd nombre_del_repositorio
+    cd nombre_del_repositorio
+    
 4. Instala las dependencias    
 
