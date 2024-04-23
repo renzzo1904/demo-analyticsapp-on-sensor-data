@@ -1,5 +1,14 @@
+import os
 import sys
-sys.path.append('../scripts/')
+
+# Get the absolute path to the directory containing the current file
+current_file_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Get the absolute path to the root of the project (assuming it's two levels up)
+project_root = os.path.abspath(os.path.join(current_file_dir, '..', '..',"scripts"))
+
+# Add the project root to the Python path
+sys.path.append(project_root)
 
 import datetime
 import pdb
@@ -193,8 +202,8 @@ class app_structure():
                     self.metrics = st.empty()
                 
                 with st.expander("💻 Forecast ",expanded=True):
-                    st.image("brain.png")
-                    display_ml_results(html_file="ml_widget.html")
+                    st.image("app/pages/brain.png")
+                    display_ml_results(html_file="app/pages/ml_widget.html")
 
             with self.col2: 
 
@@ -278,7 +287,7 @@ class app_structure():
 
             self.kpi = {k: v[::-1] for k, v in self.kpi.items()}
 
-        asyncio.sleep(3)
+        await asyncio.sleep(3)
 
     #@st.experimental_fragment(run_every=st.session_state.get("run_every"))                   
     def map_fragment(self):
