@@ -31,8 +31,7 @@ Esta aplicación es un dashboard de tiempo real que simula la lectura de datos d
 5. Inicia la app usando Streamlit `run` en el cmd o bash.
 
     ```cmd
-    cd app
-    streamlit run App.py
+    streamlit run app/App.py
 
 5. Navega hasta la dirección local donde la app está corriendo. Streamlit debería hacerse cargo de abrir el naevgador de manera automática. 
 
