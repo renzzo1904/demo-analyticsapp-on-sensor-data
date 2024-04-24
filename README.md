@@ -1,6 +1,6 @@
 # **Aplicación de dashboard de tiempo real con simulación de sensor IoT**
 
-Esta aplicación es un dashboard de tiempo real que simula la lectura de datos de un sensor IoT. El objetivo es proporcionar una demostración de cómo crear un tablero interactivo que refleje los cambios en los datos del sensor en tiempo real.
+Esta aplicación es un dashboard de tiempo real que simula la lectura de datos de un sensor IoT. El objetivo es proporcionar una demostración de cómo crear un tablero interactivo que refleje los cambios en los datos del sensor en tiempo real. [Aquí la app hosteada en la nube de Streamlit Community.](https://demo-analyticsapp-on-sensor-data-9kuhwjkzceds7ifjap6jzi.streamlit.app/)
 
 ![Dashboard_parte_superior](images/app_im_1.png "Dashboard")
 ![Dashboard_parte_mapa](images/app_im_2.png "Dashboard")
